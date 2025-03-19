@@ -51,13 +51,11 @@ int start_server(char *ifaces, int port, int is_threaded){
     int svr_socket;
     int rc;
 
-    // Suppress unused parameter warning
     (void)is_threaded;
-    // If implementing extra credit, you'd use is_threaded here
 
     svr_socket = boot_server(ifaces, port);
     if (svr_socket < 0){
-        int err_code = svr_socket;  //server socket will carry error code
+        int err_code = svr_socket;  
         return err_code;
     }
 
@@ -120,14 +118,12 @@ int boot_server(char *ifaces, int port){
     
     struct sockaddr_in addr;
 
-    // Create socket
     svr_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (svr_socket < 0) {
         perror("socket");
         return ERR_RDSH_COMMUNICATION;
     }
 
-    // Set socket options to reuse address
     int enable = 1;
     if (setsockopt(svr_socket, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0) {
         perror("setsockopt");
@@ -135,7 +131,6 @@ int boot_server(char *ifaces, int port){
         return ERR_RDSH_COMMUNICATION;
     }
 
-    // Set up server address
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
@@ -146,7 +141,6 @@ int boot_server(char *ifaces, int port){
         return ERR_RDSH_COMMUNICATION;
     }
 
-    // Bind socket to address
     ret = bind(svr_socket, (struct sockaddr*)&addr, sizeof(addr));
     if (ret < 0) {
         perror("bind");
@@ -212,26 +206,21 @@ int boot_server(char *ifaces, int port){
 
 int process_cli_requests(int svr_socket){
     int cli_socket;
-    int rc = OK;  // Ensure rc is declared properly
-
+    int rc = OK;  
     while(1) {
         struct sockaddr_in client_addr;
         socklen_t client_len = sizeof(client_addr);
         
-        // Accept client connection
         cli_socket = accept(svr_socket, (struct sockaddr*)&client_addr, &client_len);
         if (cli_socket < 0) {
             perror("accept");
             return ERR_RDSH_COMMUNICATION;
         }
         
-        // Handle client requests
         rc = exec_client_requests(cli_socket);
         
-        // Close client socket
         close(cli_socket);
         
-        // Check if server should stop
         if (rc < 0) {
             break;
         }
@@ -287,7 +276,7 @@ int exec_client_requests(int cli_socket) {
     char *io_buff;
     ssize_t recv_size;
     command_list_t clist;
-    int rc = OK;  // Declare and initialize rc
+    int rc = OK; 
 
     io_buff = malloc(RDSH_COMM_BUFF_SZ);
     if (!io_buff) {
@@ -321,7 +310,7 @@ int exec_client_requests(int cli_socket) {
     }
 
     free(io_buff);  
-    return rc;  // Ensure rc is returned to remove warning
+    return rc;  
 }
 
 
@@ -423,14 +412,13 @@ int send_message_string(int cli_socket, char *buff){
  */
 
 int rsh_execute_pipeline(int cli_sock, command_list_t *clist) {
-    int pipes[clist->num - 1][2];  // Array of pipes
+    int pipes[clist->num - 1][2];  
     pid_t pids[clist->num];
-    int pids_st[clist->num];  // Process statuses
+    int pids_st[clist->num]; 
     int exit_code;
 
-    (void)cli_sock;  // Suppress unused parameter warning
-
-    // Create all necessary pipes
+    (void)cli_sock;  
+    
     for (int i = 0; i < clist->num - 1; i++) {
         if (pipe(pipes[i]) == -1) {
             perror("pipe");
@@ -445,29 +433,26 @@ int rsh_execute_pipeline(int cli_sock, command_list_t *clist) {
             exit(EXIT_FAILURE);
         }
 
-        if (pids[i] == 0) { // Child process
-            if (i == 0) { // First command in pipeline
+        if (pids[i] == 0) { 
+            if (i == 0) { 
                 dup2(cli_sock, STDIN_FILENO);
             }
-            if (i == clist->num - 1) { // Last command
+            if (i == clist->num - 1) { 
                 dup2(cli_sock, STDOUT_FILENO);
                 dup2(cli_sock, STDERR_FILENO);
             }
 
-            // Execute the command using the correct structure field
             execvp(clist->commands[i].argv[0], clist->commands[i].argv);
             perror("execvp");
             exit(EXIT_FAILURE);
         }
     }
 
-    // Parent process: close all pipes
     for (int i = 0; i < clist->num - 1; i++) {
         close(pipes[i][0]);
         close(pipes[i][1]);
     }
 
-    // Wait for all children
     for (int i = 0; i < clist->num; i++) {
         waitpid(pids[i], &pids_st[i], 0);
     }
