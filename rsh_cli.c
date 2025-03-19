@@ -98,7 +98,6 @@ int exec_remote_cmd_loop(char *address, int port)
     ssize_t io_size;
     int is_eof;
 
-    // Allocate buffers for sending and receiving data
     cmd_buff = malloc(RDSH_COMM_BUFF_SZ);
     rsp_buff = malloc(RDSH_COMM_BUFF_SZ);
     
@@ -114,48 +113,38 @@ int exec_remote_cmd_loop(char *address, int port)
 
     while (1) 
     {
-        // Print prompt
         printf("rdsh> ");
         fflush(stdout);
 
-        // Get input from user
         if (fgets(cmd_buff, RDSH_COMM_BUFF_SZ, stdin) == NULL) {
-            // EOF or error
             break;
         }
 
-        // Check for exit command
         if (strcmp(cmd_buff, "exit\n") == 0) {
             break;
         }
 
-        // Send command to server
         io_size = send(cli_socket, cmd_buff, strlen(cmd_buff), 0);
         if (io_size < 0) {
             perror("send");
             return client_cleanup(cli_socket, cmd_buff, rsp_buff, ERR_RDSH_COMMUNICATION);
         }
 
-        // Receive all results
         while (1) {
             io_size = recv(cli_socket, rsp_buff, RDSH_COMM_BUFF_SZ, 0);
             
             if (io_size < 0) {
-                // Communication error
                 perror("recv");
                 return client_cleanup(cli_socket, cmd_buff, rsp_buff, ERR_RDSH_COMMUNICATION);
             } else if (io_size == 0) {
-                // Server down
                 fprintf(stderr, "Server disconnected\n");
                 return client_cleanup(cli_socket, cmd_buff, rsp_buff, ERR_RDSH_COMMUNICATION);
             } else {
-                // Got data, print it out
                 printf("%.*s", (int)io_size, rsp_buff);
                 
-                // Check if last byte is EOF
                 is_eof = (rsp_buff[io_size-1] == RDSH_EOF_CHAR) ? 1 : 0;
                 if (is_eof) {
-                    break;  // This is the last part of transmission
+                    break;  
                 }
             }
         }
@@ -194,14 +183,12 @@ int start_client(char *server_ip, int port){
     int cli_socket;
     int ret;
 
-    // Create socket
     cli_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (cli_socket < 0) {
         perror("socket");
         return ERR_RDSH_CLIENT;
     }
 
-    // Set up server address
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
@@ -212,7 +199,6 @@ int start_client(char *server_ip, int port){
         return ERR_RDSH_CLIENT;
     }
 
-    // Connect to server
     ret = connect(cli_socket, (struct sockaddr*)&addr, sizeof(addr));
     if (ret < 0) {
         perror("connect");
